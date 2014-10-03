@@ -1,0 +1,14 @@
+{application, kelm,
+ [
+  {description, "Kaos Erlang Library Manager"},
+  {vsn, "1"},
+  {modules, [
+             kelm
+            ]},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {env, []}
+ ]}.
