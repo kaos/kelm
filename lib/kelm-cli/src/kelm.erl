@@ -25,7 +25,7 @@ main([]) ->
 
 main(Args) ->
     {ok, {Opts, Cmds}} = parse_opts(Args),
-    fmt("opts: ~p~n", [Opts]),
+    %% fmt("opts: ~p~n", [Opts]),
     run(Cmds, Opts).
 
 
@@ -41,7 +41,7 @@ usage() ->
 
 parse_opts(Args) ->
     getopt:parse(opt_spec(), Args).
-    
+
 run([], _Opts) -> ok;
 run(Cmds, Opts) ->
     case catch exec(Cmds, Opts) of
@@ -70,15 +70,21 @@ exec([Cmd|_], _Opts) ->
 init_manifest(Cmds, Opts) ->
     {Dir, Cmds1} = get_dir(Cmds),
     AppDir = filename:join([Dir, "ebin"]),
-    Manifest = [get_name(Dir), ".manifest"],
-    case filelib:wildcard([AppDir, "/*.app"]) of
-        [] -> {error, ["missing library .app file in ", AppDir]};
-        [App] ->
-            fmt("Manifest: ~s~n", [Manifest]),
-            fmt("App file: ~s~n", [App]),
-            {ok, Cmds1, Opts};
-        _ ->
-            {error, ["too many .app files in ", AppDir]}
+    ManifestFile = [get_name(Dir), ".manifest"],
+    case filelib:is_file(ManifestFile) of
+        true ->
+            {error, ["will not overwrite existing manifest: ", ManifestFile]};
+        false ->
+            case filelib:wildcard([AppDir, "/*.app"]) of
+                [] -> {error, ["missing library .app file in ", AppDir]};
+                [AppFile] ->
+                    fmt("Manifest: ~s~n", [ManifestFile]),
+                    fmt("App file: ~s~n", [AppFile]),
+                    ok = save_manifest([{app_file, AppFile}], ManifestFile),
+                    {ok, Cmds1, Opts};
+                _ ->
+                    {error, ["too many .app files in ", AppDir]}
+            end
     end.
 
 get_dir([]) -> {".", []};
@@ -94,13 +100,16 @@ get_name(Dir) ->
         Name -> Name
     end.
 
+save_manifest(Manifest, File) ->
+    file:write_file(File, [io_lib:format("~p.\n", [T]) || T <- Manifest]).
+
 help("commands") ->
     fmt_err("Available commands:\n\n~s\n",
-        [string:join(["init","help","publish"], ", ")]);
+            [string:join(["init","help","publish"], ", ")]);
 
 help("help") ->
     fmt_err("Usage: kelm help [command ...]\n\n"
-        "Get help on commands.\n");
+            "Get help on commands.\n");
 
 help("init") ->
     fmt_err("Usage: kelm init [library]\n\n"
@@ -109,8 +118,8 @@ help("init") ->
 
 help("publish") ->
     fmt_err("Usage: kelm publish [manifest]\n\n"
-        "Publish library as detailed in the manifest.\n"
-        "If no manifest is specified, it defaults to kelm.manifest.\n");
+            "Publish library as detailed in the manifest.\n"
+            "If no manifest is specified, it defaults to kelm.manifest.\n");
 
 help(Cmd) ->
     fmt_err("help: no help on '~s'\n", [Cmd]).
